@@ -1,0 +1,48 @@
+name: 'Shared: Build image'
+
+on:
+  workflow_call:
+    inputs:
+      gh-release:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      AWS_ACCOUNT:
+        required: true
+
+jobs:
+  build-image:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: eu-central-1
+          role-to-assume: ${{ secrets.GH_ROLE }}
+      - name: Log in to ECR
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: 'true'
+
+      - name: Get datetime tag
+        if: ${{ inputs.gh-release == true }}
+        id: vars
+        run: echo "TAG=$(git log -1 --format=%cd --date=format:'%Y%m%d_%H%M%S')" >> $GITHUB_OUTPUT
+      - name: Fetch after bumpversion
+        if: ${{ inputs.gh-release == true }}
+        run: git fetch && git pull
+
+      - name: Build and publish
+        run: AWS_ACCOUNT=${{ secrets.AWS_ACCOUNT }} DATETIME=${{ steps.vars.outputs.TAG }} ./bin/build.sh --push
+
+      - name: Make GitHub Release
+        if: ${{ inputs.gh-release == true }}
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.vars.outputs.TAG }}

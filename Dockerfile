@@ -22,6 +22,6 @@ RUN python setup.py install && \
 USER snappass
 
 # Default Flask port
-EXPOSE 5000
+EXPOSE 8000
 
 CMD ["snappass"]
